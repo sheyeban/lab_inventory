@@ -1,26 +1,36 @@
 mod models;
 mod db;
-
-use bcrypt::{hash, DEFAULT_COST};
+mod auth;
+mod ui;
+mod handlers;
 
 fn main() {
     let conn = db::open_db().expect("бд не открылась");
     db::init_db(&conn).expect("таблицы не создались");
 
-    let count = db::users_count(&conn).expect("ошибка подсчета юзеров");
+    auth::seed_pushnyavka_if_empty(&conn);
 
-    if count == 0 {
-        let password_hash = hash("pushnyavka", DEFAULT_COST).expect("ошибка хеширования");
+    loop {
+        println!("\n=== LOGIN ===");
+        println!("seed lab_manager: pushnyavka / pushnyavka");
+        println!("1) Login");
+        println!("0) Exit");
 
-        db::create_user(
-            &conn,
-            "pushnyavka",
-            &password_hash,
-            "lab_manager",
-        ).expect("ошибка создания пушнявки(админ)!");
+        match ui::input_u32("Выбор: ") {
+            1 => {
+                let username = ui::input("Логин: ");
+                let password = ui::input("Пароль: ");
 
-        println!("пушнявка создана");
-    } else {
-        println!("юзеры уже существуют");
+                if let Some(user) = auth::login(&conn, &username, &password) {
+                    handlers::run_role_menu(&conn, &user);
+                } else {
+                    println!("Неверный логин или пароль.");
+                }
+            }
+            0 => break,
+            _ => println!("Неверно."),
+        }
     }
+
+    println!("Пока 👋");
 }
